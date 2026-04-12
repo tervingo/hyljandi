@@ -74,6 +74,18 @@ export default function App() {
     }
   }, [text, showToast]);
 
+  // ── Close flow ────────────────────────────────────────────────────────────
+
+  const handleClose = useCallback(() => {
+    if (isDirty) {
+      const ok = window.confirm('Hay cambios sin guardar. ¿Cerrar de todas formas?');
+      if (!ok) return;
+    }
+    setText('');
+    setFilename(null);
+    setIsDirty(false);
+  }, [isDirty]);
+
   // ── Load flow ──────────────────────────────────────────────────────────────
 
   const handleLoad = useCallback(async () => {
@@ -159,6 +171,7 @@ export default function App() {
         onChange={handleChange}
         onSave={triggerSave}
         onLoad={handleLoad}
+        onClose={handleClose}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         filename={filename}

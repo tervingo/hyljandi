@@ -161,6 +161,7 @@ export default function Toolbar({
   onChange,
   onSave,
   onLoad,
+  onClose,
   viewMode,
   onViewModeChange,
   filename,
@@ -218,6 +219,22 @@ export default function Toolbar({
         <span className="text-xs text-slate-500 mr-2 truncate max-w-[180px]" title={filename}>
           {isDirty ? '● ' : ''}{filename}
         </span>
+      )}
+
+      {/* Close button — only visible when a file is open */}
+      {filename && (
+        <button
+          onClick={onClose}
+          title="Cerrar fichero actual"
+          className="
+            flex items-center gap-1 px-3 py-1 rounded text-sm
+            bg-[#252836] text-slate-400 hover:bg-red-900/60 hover:text-red-300
+            border border-[#2d3148] hover:border-red-700
+            transition-colors duration-100 cursor-pointer
+          "
+        >
+          <span>✕</span> Cerrar
+        </button>
       )}
 
       {/* Load button */}
