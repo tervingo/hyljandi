@@ -1,11 +1,14 @@
 /**
  * fileIO.js — Save and load .md files using the File System Access API.
  *
- * Save flow: encrypt text → show native "Save As" dialog → write file
- * Load flow: open native file picker (.md filter) → read file → decrypt
+ * Save flows:
+ *   - saveToHandle(handle, text): sobrescribe un fichero ya abierto (sin diálogo)
+ *   - saveAsNew(text, suggestedName): abre el diálogo "Guardar como" del SO
  *
- * Falls back to a classic <a download> / <input type=file> approach
- * when the File System Access API is not available (e.g. Firefox).
+ * Load flow: abre el diálogo nativo → lee → descifra → devuelve handle + texto
+ *
+ * Falls back to <a download> / <input type=file> when la File System Access
+ * API no está disponible (Firefox). En ese caso el handle devuelto es null.
  */
 
 import { encrypt, decrypt, isEncrypted } from './cipher.js';
@@ -18,19 +21,31 @@ const FILE_TYPES = [
 ];
 
 /**
- * Save plaintext as an encrypted .md file.
- * Returns the filename chosen by the user, or null on cancel.
+ * Sobrescribe un fichero ya abierto usando su FileSystemFileHandle.
+ * No muestra ningún diálogo. Devuelve true si tuvo éxito.
+ * @param {FileSystemFileHandle} handle
+ * @param {string} plaintext
+ * @returns {Promise<boolean>}
+ */
+export async function saveToHandle(handle, plaintext) {
+  const ciphertext = encrypt(plaintext);
+  const writable = await handle.createWritable();
+  await writable.write(ciphertext);
+  await writable.close();
+  return true;
+}
+
+/**
+ * Abre el diálogo "Guardar como" del SO y escribe el fichero cifrado.
+ * Devuelve { filename, handle } si tuvo éxito, o null si el usuario cancela.
  * @param {string} plaintext
  * @param {string} suggestedName
- * @returns {Promise<string|null>}
+ * @returns {Promise<{filename: string, handle: FileSystemFileHandle|null}|null>}
  */
-export async function saveFile(plaintext, suggestedName = 'document.md') {
+export async function saveAsNew(plaintext, suggestedName = 'documento.md') {
   const ciphertext = encrypt(plaintext);
 
-  // Ensure filename ends with .md
-  if (!suggestedName.endsWith('.md')) {
-    suggestedName += '.md';
-  }
+  if (!suggestedName.endsWith('.md')) suggestedName += '.md';
 
   if (window.showSaveFilePicker) {
     try {
@@ -41,13 +56,13 @@ export async function saveFile(plaintext, suggestedName = 'document.md') {
       const writable = await handle.createWritable();
       await writable.write(ciphertext);
       await writable.close();
-      return handle.name;
+      return { filename: handle.name, handle };
     } catch (err) {
-      if (err.name === 'AbortError') return null; // user cancelled
+      if (err.name === 'AbortError') return null;
       throw err;
     }
   } else {
-    // Fallback: trigger a browser download
+    // Fallback: descarga del navegador (sin handle)
     const blob = new Blob([ciphertext], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -55,14 +70,15 @@ export async function saveFile(plaintext, suggestedName = 'document.md') {
     a.download = suggestedName;
     a.click();
     URL.revokeObjectURL(url);
-    return suggestedName;
+    return { filename: suggestedName, handle: null };
   }
 }
 
 /**
- * Open a file picker for .md files, read and decrypt the selected file.
- * Returns { text, filename } or null on cancel.
- * @returns {Promise<{text: string, filename: string}|null>}
+ * Abre el diálogo nativo de ficheros (.md), lee y descifra el contenido.
+ * Devuelve { text, filename, handle } o null si el usuario cancela.
+ * En el fallback (Firefox), handle es null.
+ * @returns {Promise<{text: string, filename: string, handle: FileSystemFileHandle|null}|null>}
  */
 export async function loadFile() {
   if (window.showOpenFilePicker) {
@@ -74,13 +90,13 @@ export async function loadFile() {
       const file = await handle.getFile();
       const raw = await file.text();
       const text = isEncrypted(raw) ? decrypt(raw) : raw;
-      return { text, filename: handle.name };
+      return { text, filename: handle.name, handle };
     } catch (err) {
       if (err.name === 'AbortError') return null;
       throw err;
     }
   } else {
-    // Fallback: hidden <input type=file>
+    // Fallback: <input type=file>
     return new Promise((resolve) => {
       const input = document.createElement('input');
       input.type = 'file';
@@ -90,7 +106,7 @@ export async function loadFile() {
         if (!file) { resolve(null); return; }
         const raw = await file.text();
         const text = isEncrypted(raw) ? decrypt(raw) : raw;
-        resolve({ text, filename: file.name });
+        resolve({ text, filename: file.name, handle: null });
       };
       input.oncancel = () => resolve(null);
       input.click();

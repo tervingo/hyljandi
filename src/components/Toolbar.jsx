@@ -160,12 +160,14 @@ export default function Toolbar({
   text,
   onChange,
   onSave,
+  onNew,
   onLoad,
   onClose,
   viewMode,
   onViewModeChange,
   filename,
   isDirty,
+  hasHandle,
 }) {
   return (
     <div className="flex items-center gap-1 px-3 py-2 bg-[#1a1d27] border-b border-[#2d3148] flex-wrap select-none">
@@ -221,6 +223,20 @@ export default function Toolbar({
         </span>
       )}
 
+      {/* New button */}
+      <button
+        onClick={onNew}
+        title="Nuevo documento (Ctrl+N)"
+        className="
+          flex items-center gap-1 px-3 py-1 rounded text-sm
+          bg-[#252836] text-slate-300 hover:bg-[#323650] hover:text-white
+          border border-[#2d3148] hover:border-[#4c5380]
+          transition-colors duration-100 cursor-pointer
+        "
+      >
+        <span>＋</span> Nuevo
+      </button>
+
       {/* Close button — only visible when a file is open */}
       {filename && (
         <button
@@ -251,10 +267,10 @@ export default function Toolbar({
         <span>📂</span> Cargar
       </button>
 
-      {/* Save button */}
+      {/* Save button — tooltip changes depending on whether a handle exists */}
       <button
         onClick={onSave}
-        title="Guardar como .md cifrado"
+        title={hasHandle ? `Guardar en ${filename}` : 'Guardar como… (nuevo fichero cifrado)'}
         className="
           flex items-center gap-1 px-3 py-1 rounded text-sm
           bg-indigo-600 text-white hover:bg-indigo-500

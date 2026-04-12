@@ -1,12 +1,11 @@
 /**
  * App.jsx — Root component for hyljandi markdown editor.
  *
- * Manages:
- *  - Editor text state
- *  - View mode (edit | split | preview)
- *  - Save / Load orchestration
- *  - Keyboard shortcuts (Ctrl+S, Ctrl+B, Ctrl+I)
- *  - "Dirty" indicator (unsaved changes)
+ * Lógica de guardado:
+ *  - Fichero existente (fileHandle != null): Guardar sobrescribe sin diálogo
+ *  - Fichero nuevo (fileHandle == null):     Guardar abre modal de nombre → diálogo SO
+ *
+ * Botón "Nuevo" limpia el editor y resetea el handle.
  */
 
 import { useState, useRef, useCallback, useEffect } from 'react';
@@ -14,27 +13,13 @@ import Toolbar from './components/Toolbar';
 import Editor from './components/Editor';
 import Preview from './components/Preview';
 import SaveModal from './components/SaveModal';
-import { saveFile, loadFile } from './utils/fileIO';
-
-const INITIAL_TEXT = `# Bienvenido a hyljandi
-
-Escribe tu **Markdown** aquí. Usa la barra de herramientas para aplicar formato.
-
-## Características
-
-- Cifrado XOR automático al guardar
-- Vista previa en tiempo real
-- Atajos de teclado: \`Ctrl+B\`, \`Ctrl+I\`, \`Ctrl+S\`
-
----
-
-> Empieza a escribir y pulsa **Guardar** cuando estés listo.
-`;
+import { saveToHandle, saveAsNew, loadFile } from './utils/fileIO';
 
 export default function App() {
-  const [text, setText] = useState(INITIAL_TEXT);
+  const [text, setText] = useState('');
   const [viewMode, setViewMode] = useState('split'); // 'edit' | 'split' | 'preview'
   const [filename, setFilename] = useState(null);
+  const [fileHandle, setFileHandle] = useState(null); // FileSystemFileHandle | null
   const [isDirty, setIsDirty] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
   const [toast, setToast] = useState(null); // { message, type }
@@ -56,23 +41,51 @@ export default function App() {
 
   // ── Save flow ──────────────────────────────────────────────────────────────
 
+  // Guardar: si hay handle (fichero existente) → sobrescribe directamente
+  //          si no → muestra modal para pedir nombre
   const triggerSave = useCallback(() => {
-    setShowSaveModal(true);
-  }, []);
+    if (fileHandle) {
+      // Guardado directo, sin diálogo
+      saveToHandle(fileHandle, text)
+        .then(() => {
+          setIsDirty(false);
+          showToast(`Guardado: ${filename}`);
+        })
+        .catch((err) => showToast(`Error al guardar: ${err.message}`, 'error'));
+    } else {
+      setShowSaveModal(true);
+    }
+  }, [fileHandle, text, filename, showToast]);
 
+  // Confirmación del modal (solo para ficheros nuevos)
   const handleSaveConfirm = useCallback(async (chosenName) => {
     setShowSaveModal(false);
     try {
-      const saved = await saveFile(text, chosenName);
-      if (saved) {
-        setFilename(saved);
+      const result = await saveAsNew(text, chosenName);
+      if (result) {
+        setFilename(result.filename);
+        setFileHandle(result.handle); // guarda el handle para futuros Ctrl+S
         setIsDirty(false);
-        showToast(`Guardado: ${saved}`);
+        showToast(`Guardado: ${result.filename}`);
       }
     } catch (err) {
       showToast(`Error al guardar: ${err.message}`, 'error');
     }
   }, [text, showToast]);
+
+  // ── New flow ───────────────────────────────────────────────────────────────
+
+  const handleNew = useCallback(() => {
+    if (isDirty || text.trim()) {
+      const ok = window.confirm('Hay cambios sin guardar. ¿Crear un nuevo documento?');
+      if (!ok) return;
+    }
+    setText('');
+    setFilename(null);
+    setFileHandle(null);
+    setIsDirty(false);
+    requestAnimationFrame(() => textareaRef.current?.focus());
+  }, [isDirty, text]);
 
   // ── Close flow ────────────────────────────────────────────────────────────
 
@@ -83,6 +96,7 @@ export default function App() {
     }
     setText('');
     setFilename(null);
+    setFileHandle(null);
     setIsDirty(false);
   }, [isDirty]);
 
@@ -94,6 +108,7 @@ export default function App() {
       if (result) {
         setText(result.text);
         setFilename(result.filename);
+        setFileHandle(result.handle); // puede ser null en Firefox
         setIsDirty(false);
         showToast(`Cargado: ${result.filename}`);
       }
@@ -170,12 +185,14 @@ export default function App() {
         text={text}
         onChange={handleChange}
         onSave={triggerSave}
+        onNew={handleNew}
         onLoad={handleLoad}
         onClose={handleClose}
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         filename={filename}
         isDirty={isDirty}
+        hasHandle={!!fileHandle}
       />
 
       {/* Main editing area */}
@@ -213,10 +230,10 @@ export default function App() {
         <span className="text-indigo-600">XOR cifrado</span>
       </footer>
 
-      {/* Save modal */}
+      {/* Save modal (solo para ficheros nuevos) */}
       {showSaveModal && (
         <SaveModal
-          defaultName={filename ? filename.replace(/\.md$/, '') : 'documento'}
+          defaultName="documento"
           onConfirm={handleSaveConfirm}
           onCancel={() => setShowSaveModal(false)}
         />
