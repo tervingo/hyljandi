@@ -9,7 +9,8 @@
  * embedded in the app. Sufficient to prevent casual reading.
  */
 
-const KEY = 'hyljandi-xor-key-2024!#$%';
+const KEY = import.meta.env.VITE_CIPHER_KEY;
+if (!KEY) throw new Error('VITE_CIPHER_KEY no está definida en el fichero .env');
 
 /**
  * Encode a UTF-8 string to a Base64 XOR-ciphered string.
