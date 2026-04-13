@@ -13,7 +13,7 @@ import Toolbar from './components/Toolbar';
 import Editor from './components/Editor';
 import Preview from './components/Preview';
 import SaveModal from './components/SaveModal';
-import { saveToHandle, saveAsNew, loadFile, chooseBaseDir, getBaseDir } from './utils/fileIO';
+import { saveToHandle, saveAsNew, loadFile, chooseBaseDir, getBaseDir, canPickDir } from './utils/fileIO';
 
 export default function App() {
   const [text, setText] = useState('');
@@ -192,18 +192,20 @@ export default function App() {
         </span>
         <span className="text-slate-600 text-xs">editor de markdown cifrado</span>
         <span className="flex-1" />
-        <button
-          onClick={handleChooseBaseDir}
-          title="Cambiar directorio base de trabajo"
-          className="flex items-center gap-1.5 px-2 py-1 rounded text-xs
-            bg-[#1e2235] hover:bg-[#252836] text-slate-500 hover:text-slate-300
-            border border-[#2d3148] hover:border-[#4c5380] transition-colors cursor-pointer"
-        >
-          <span>📁</span>
-          <span className="max-w-[220px] truncate">
-            {baseDirName ? baseDirName : 'Elegir directorio base…'}
-          </span>
-        </button>
+        {canPickDir && (
+          <button
+            onClick={handleChooseBaseDir}
+            title="Cambiar directorio base de trabajo"
+            className="flex items-center gap-1.5 px-2 py-1 rounded text-xs
+              bg-[#1e2235] hover:bg-[#252836] text-slate-500 hover:text-slate-300
+              border border-[#2d3148] hover:border-[#4c5380] transition-colors cursor-pointer"
+          >
+            <span>📁</span>
+            <span className="max-w-[220px] truncate">
+              {baseDirName ? baseDirName : 'Elegir directorio base…'}
+            </span>
+          </button>
+        )}
       </header>
 
       {/* Toolbar */}
