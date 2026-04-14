@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "Bash(gh auth:*)",
+      "Bash(where gh:*)",
+      "Bash(winpty gh:*)",
+      "Bash(cmd //c \"where gh\")",
+      "Bash(git -C \"c:/Users/j4alo/Dropbox/Eltomalturta/hyljandi\" config user.name)",
+      "Bash(git -C \"c:/Users/j4alo/Dropbox/Eltomalturta/hyljandi\" config user.email)"
     ]
   }
 }
